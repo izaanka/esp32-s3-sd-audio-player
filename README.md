@@ -4,7 +4,7 @@ A high-performance, standalone audio player built for the ESP32-S3 microcontroll
 
 ---
 
-## Direct Binary Download (Ready for Flashing)
+## Direct Binary Download
 
 Pre-compiled binary files are committed directly to this repository in the [`bin/`](./bin) directory and updated automatically on every commit via GitHub Actions:
 
@@ -77,9 +77,24 @@ Pre-compiled binary files are committed directly to this repository in the [`bin
 
 ---
 
-## Building and Flashing Methods
+## Flashing Methods
 
-### Method 1: Single Merged Binary Flash (Fastest)
+### Method 1: Web App Browser Flashing (Primary / Recommended)
+
+Flash the ESP32-S3 directly from your web browser using Web Serial (Google Chrome, Microsoft Edge, or Opera):
+
+1. Connect your ESP32-S3 board to your computer via USB cable.
+2. Download the pre-compiled single binary: [`esp32s3-sd-audio-player-merged.bin`](./bin/esp32s3-sd-audio-player-merged.bin).
+3. Open a Web Serial ESP Flasher tool:
+   - [adafruit.github.io/web-serial-esptool](https://adafruit.github.io/web-serial-esptool/)
+   - [esp.toit.io](https://esp.toit.io/)
+4. Click **Connect** and select your ESP32-S3 serial port.
+5. Select the downloaded **`esp32s3-sd-audio-player-merged.bin`** file and set the offset to **`0x00000`**.
+6. Click **Program / Flash**.
+
+---
+
+### Method 2: Single Merged Binary Command Line (`esptool.py`)
 
 Download [`bin/esp32s3-sd-audio-player-merged.bin`](./bin/esp32s3-sd-audio-player-merged.bin) and flash at offset `0x00000`:
 
@@ -89,9 +104,9 @@ esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 write_flash 0x00000 bin/esp3
 
 ---
 
-### Method 2: Flash Individual Component Binaries
+### Method 3: Flash Individual Component Binaries
 
-Using binaries from the [`bin/`](./bin) directory:
+Using component binaries from the [`bin/`](./bin) directory:
 
 ```bash
 esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 \
@@ -101,18 +116,6 @@ esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 \
   0x08000 bin/partition-table.bin \
   0x10000 bin/sound_test.bin
 ```
-
----
-
-### Method 3: Using Web Serial / ESP Web Tools (Browser Flash)
-
-You can flash the ESP32-S3 directly from a Web Serial compatible browser (Google Chrome, Microsoft Edge, or Opera):
-
-1. Connect the ESP32-S3 to your computer via USB.
-2. Open an online ESP Web Flasher tool (e.g., [adafruit.github.io/web-serial-esptool](https://adafruit.github.io/web-serial-esptool/) or [esp.toit.io](https://esp.toit.io/)).
-3. Click **Connect** and select the ESP32-S3 serial port.
-4. Select [`bin/esp32s3-sd-audio-player-merged.bin`](./bin/esp32s3-sd-audio-player-merged.bin) at offset `0x00000`.
-5. Click **Program / Flash**.
 
 ---
 
