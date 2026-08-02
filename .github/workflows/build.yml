@@ -36,22 +36,35 @@ jobs:
             0x08000 build/partition_table/partition-table.bin \
             0x10000 build/sound_test.bin
 
+      - name: Commit and Push Updated Binaries to Repository
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p bin
+          cp build/esp32s3-sd-audio-player-merged.bin bin/
+          cp build/sound_test.bin bin/
+          cp build/bootloader/bootloader.bin bin/
+          cp build/partition_table/partition-table.bin bin/
+          git add bin/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-build: Update pre-compiled ESP32-S3 binaries [skip ci]" && git push)
+
       - name: Upload Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: esp32s3-audio-player-binaries
           path: |
-            build/esp32s3-sd-audio-player-merged.bin
-            build/sound_test.bin
-            build/bootloader/bootloader.bin
-            build/partition_table/partition-table.bin
+            bin/esp32s3-sd-audio-player-merged.bin
+            bin/sound_test.bin
+            bin/bootloader.bin
+            bin/partition-table.bin
 
       - name: Upload Binaries to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/esp32s3-sd-audio-player-merged.bin
-            build/sound_test.bin
-            build/bootloader/bootloader.bin
-            build/partition_table/partition-table.bin
+            bin/esp32s3-sd-audio-player-merged.bin
+            bin/sound_test.bin
+            bin/bootloader.bin
+            bin/partition-table.bin

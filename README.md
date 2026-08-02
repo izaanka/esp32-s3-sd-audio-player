@@ -4,6 +4,17 @@ A high-performance, standalone audio player built for the ESP32-S3 microcontroll
 
 ---
 
+## Direct Binary Download (Ready for Flashing)
+
+Pre-compiled binary files are committed directly to this repository in the [`bin/`](./bin) directory and updated automatically on every commit via GitHub Actions:
+
+- **Single Merged Binary (Recommended)**: [`bin/esp32s3-sd-audio-player-merged.bin`](./bin/esp32s3-sd-audio-player-merged.bin)
+- **Application Binary**: [`bin/sound_test.bin`](./bin/sound_test.bin)
+- **Bootloader Binary**: [`bin/bootloader.bin`](./bin/bootloader.bin)
+- **Partition Table Binary**: [`bin/partition-table.bin`](./bin/partition-table.bin)
+
+---
+
 ## Hardware Requirements and Wiring
 
 | Component | Pin / Interface | ESP32-S3 Pin |
@@ -68,33 +79,27 @@ A high-performance, standalone audio player built for the ESP32-S3 microcontroll
 
 ## Building and Flashing Methods
 
-### Option A: Pre-built Binaries (Automated CI/CD Builds)
-Pre-compiled binaries are automatically generated on every commit via GitHub Actions:
-1. Go to the **Actions** tab of this repository (or check the **Releases** page).
-2. Download **`esp32s3-audio-player-binaries.zip`**.
-3. Extract `esp32s3-sd-audio-player-merged.bin` for single-file flashing.
-
----
-
 ### Method 1: Single Merged Binary Flash (Fastest)
 
-Flash the entire firmware (bootloader + partition table + application) in a single command at offset `0x00000`:
+Download [`bin/esp32s3-sd-audio-player-merged.bin`](./bin/esp32s3-sd-audio-player-merged.bin) and flash at offset `0x00000`:
 
 ```bash
-esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 write_flash 0x00000 esp32s3-sd-audio-player-merged.bin
+esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 write_flash 0x00000 bin/esp32s3-sd-audio-player-merged.bin
 ```
 
 ---
 
 ### Method 2: Flash Individual Component Binaries
 
+Using binaries from the [`bin/`](./bin) directory:
+
 ```bash
 esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 \
   --before=default_reset --after=hard_reset write_flash \
   --flash_mode dio --flash_freq 80m --flash_size 16MB \
-  0x00000 bootloader.bin \
-  0x08000 partition-table.bin \
-  0x10000 sound_test.bin
+  0x00000 bin/bootloader.bin \
+  0x08000 bin/partition-table.bin \
+  0x10000 bin/sound_test.bin
 ```
 
 ---
@@ -106,7 +111,7 @@ You can flash the ESP32-S3 directly from a Web Serial compatible browser (Google
 1. Connect the ESP32-S3 to your computer via USB.
 2. Open an online ESP Web Flasher tool (e.g., [adafruit.github.io/web-serial-esptool](https://adafruit.github.io/web-serial-esptool/) or [esp.toit.io](https://esp.toit.io/)).
 3. Click **Connect** and select the ESP32-S3 serial port.
-4. Select `esp32s3-sd-audio-player-merged.bin` at offset `0x00000`.
+4. Select [`bin/esp32s3-sd-audio-player-merged.bin`](./bin/esp32s3-sd-audio-player-merged.bin) at offset `0x00000`.
 5. Click **Program / Flash**.
 
 ---
@@ -127,7 +132,6 @@ idf.py build
 ```bash
 idf.py -p /dev/ttyACM0 flash monitor
 ```
-*(Replace `/dev/ttyACM0` with `COMx` on Windows or `/dev/ttyUSBx` if applicable).*
 
 ---
 
@@ -135,6 +139,11 @@ idf.py -p /dev/ttyACM0 flash monitor
 
 ```text
 sound_test/
+├── bin/                       # Pre-compiled .bin firmware files for direct flashing
+│   ├── esp32s3-sd-audio-player-merged.bin
+│   ├── sound_test.bin
+│   ├── bootloader.bin
+│   └── partition-table.bin
 ├── main/
 │   ├── main.c                 # app_main entry point, startup staging & UI task
 │   ├── config.h               # Hardware pin definitions & global configuration
@@ -146,6 +155,7 @@ sound_test/
 │   ├── button_handler.c/h     # 4-button debouncer & short/long-press detector
 │   ├── oled_display.c/h       # SSD1306 I2C OLED display renderer
 │   └── font5x7.h              # 5x7 bitmap font for OLED text
+├── .github/workflows/build.yml # Automated CI/CD build & auto-commit workflow
 ├── sdkconfig.defaults         # Default Kconfig settings (USB Host Periodic OUT FIFO bias)
 ├── CMakeLists.txt             # Main CMake project configuration
 └── README.md                  # Documentation
