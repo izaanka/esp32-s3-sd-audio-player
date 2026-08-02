@@ -22,42 +22,57 @@ player_state_t g_player_state = {0};
 track_info_t g_tracks[MAX_TRACKS];
 int g_track_count = 0;
 
+#define OLED_SLEEP_TIMEOUT_MS 15000 // 15 seconds auto-sleep timeout to prevent OLED burn-in
+
 // UI task function:
 void ui_task(void *arg) {
     button_init();
     player_state_t local_state;
     TickType_t last_oled_update = 0;
+    TickType_t last_activity_time = xTaskGetTickCount();
     
     while (1) {
         // Poll buttons
         button_event_t evt = button_poll();
         if (evt != BTN_EVT_NONE) {
-            player_cmd_t cmd = CMD_NONE;
-            player_status_t st;
-            switch (evt) {
-                case BTN_EVT_SELECT_SHORT:
-                    // Toggle play/pause
-                    xSemaphoreTake(g_state_mutex, portMAX_DELAY);
-                    st = g_player_state.status;
-                    xSemaphoreGive(g_state_mutex);
-                    if (st == STATUS_PLAYING) cmd = CMD_PAUSE;
-                    else if (st == STATUS_PAUSED) cmd = CMD_RESUME;
-                    else if (st == STATUS_STOPPED) cmd = CMD_PLAY;
-                    break;
-                case BTN_EVT_UP_SHORT:   cmd = CMD_VOL_UP;       break;
-                case BTN_EVT_UP_LONG:    cmd = CMD_NEXT;          break;
-                case BTN_EVT_DOWN_SHORT: cmd = CMD_VOL_DOWN;      break;
-                case BTN_EVT_DOWN_LONG:  cmd = CMD_PREV;          break;
-                case BTN_EVT_BACK_SHORT: cmd = CMD_LOOP_TOGGLE;   break;
-                default: break;
-            }
-            if (cmd != CMD_NONE) {
-                xQueueSend(g_cmd_queue, &cmd, pdMS_TO_TICKS(50));
+            last_activity_time = xTaskGetTickCount();
+            if (oled_is_sleeping()) {
+                // Wake up screen on first button press
+                oled_set_sleep(false);
+            } else {
+                player_cmd_t cmd = CMD_NONE;
+                player_status_t st;
+                switch (evt) {
+                    case BTN_EVT_SELECT_SHORT:
+                        xSemaphoreTake(g_state_mutex, portMAX_DELAY);
+                        st = g_player_state.status;
+                        xSemaphoreGive(g_state_mutex);
+                        if (st == STATUS_PLAYING) cmd = CMD_PAUSE;
+                        else if (st == STATUS_PAUSED) cmd = CMD_RESUME;
+                        else if (st == STATUS_STOPPED) cmd = CMD_PLAY;
+                        break;
+                    case BTN_EVT_UP_SHORT:   cmd = CMD_VOL_UP;       break;
+                    case BTN_EVT_UP_LONG:    cmd = CMD_NEXT;          break;
+                    case BTN_EVT_DOWN_SHORT: cmd = CMD_VOL_DOWN;      break;
+                    case BTN_EVT_DOWN_LONG:  cmd = CMD_PREV;          break;
+                    case BTN_EVT_BACK_SHORT: cmd = CMD_LOOP_TOGGLE;   break;
+                    default: break;
+                }
+                if (cmd != CMD_NONE) {
+                    xQueueSend(g_cmd_queue, &cmd, pdMS_TO_TICKS(50));
+                }
             }
         }
         
-        // Update OLED at OLED_REFRESH_INTERVAL_MS
-        if ((xTaskGetTickCount() - last_oled_update) >= pdMS_TO_TICKS(OLED_REFRESH_INTERVAL_MS)) {
+        // Auto-sleep check after 15 seconds of inactivity
+        if (!oled_is_sleeping()) {
+            if ((xTaskGetTickCount() - last_activity_time) >= pdMS_TO_TICKS(OLED_SLEEP_TIMEOUT_MS)) {
+                oled_set_sleep(true);
+            }
+        }
+        
+        // Update OLED at OLED_REFRESH_INTERVAL_MS (only if awake)
+        if (!oled_is_sleeping() && ((xTaskGetTickCount() - last_oled_update) >= pdMS_TO_TICKS(OLED_REFRESH_INTERVAL_MS))) {
             xSemaphoreTake(g_state_mutex, portMAX_DELAY);
             memcpy(&local_state, &g_player_state, sizeof(player_state_t));
             xSemaphoreGive(g_state_mutex);

@@ -169,10 +169,24 @@ esp_err_t oled_init(void) {
     return ESP_OK;
 }
 
+static bool s_is_sleeping = false;
+
+void oled_set_sleep(bool sleep) {
+    if (!panel_handle) return;
+    if (s_is_sleeping == sleep) return;
+    s_is_sleeping = sleep;
+    esp_lcd_panel_disp_on_off(panel_handle, !sleep);
+}
+
+bool oled_is_sleeping(void) {
+    return s_is_sleeping;
+}
+
 static uint32_t scroll_offset = 0;
 static uint32_t last_scroll_time = 0;
 
 void oled_update(const player_state_t *state) {
+    if (s_is_sleeping) return;
     fb_clear();
     char buf[64];
 

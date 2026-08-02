@@ -6,3 +6,5 @@ esp_err_t oled_init(void);
 void oled_update(const player_state_t *state);
 void oled_show_message(const char *line1, const char *line2);
 void oled_clear(void);
+void oled_set_sleep(bool sleep);
+bool oled_is_sleeping(void);
