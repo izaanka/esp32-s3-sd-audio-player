@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "sd_card.c"
+        "wav_decoder.c"
+        "mp3_decoder.c"
+        "usb_audio_output.c"
+        "audio_player.c"
+        "button_handler.c"
+        "oled_display.c"
+    INCLUDE_DIRS "."
+    REQUIRES
+        driver
+        fatfs
+        sdmmc
+        esp_lcd
+        spi_flash
+        esp_timer
+        nvs_flash
+        esp_psram
+        usb
+        espressif__usb_host_uac
+)
