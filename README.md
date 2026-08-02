@@ -68,13 +68,50 @@ A high-performance, standalone audio player built for the ESP32-S3 microcontroll
 
 ## Building and Flashing Methods
 
-### Prerequisites
-- ESP-IDF v5.1+ installed and exported.
-- ESP32-S3 board connected via USB (UART/CDC Port).
+### Option A: Pre-built Binaries (Automated CI/CD Builds)
+Pre-compiled binaries are automatically generated on every commit via GitHub Actions:
+1. Go to the **Actions** tab of this repository (or check the **Releases** page).
+2. Download **`esp32s3-audio-player-binaries.zip`**.
+3. Extract `esp32s3-sd-audio-player-merged.bin` for single-file flashing.
 
 ---
 
-### Method 1: Using ESP-IDF CLI (Recommended)
+### Method 1: Single Merged Binary Flash (Fastest)
+
+Flash the entire firmware (bootloader + partition table + application) in a single command at offset `0x00000`:
+
+```bash
+esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 write_flash 0x00000 esp32s3-sd-audio-player-merged.bin
+```
+
+---
+
+### Method 2: Flash Individual Component Binaries
+
+```bash
+esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 \
+  --before=default_reset --after=hard_reset write_flash \
+  --flash_mode dio --flash_freq 80m --flash_size 16MB \
+  0x00000 bootloader.bin \
+  0x08000 partition-table.bin \
+  0x10000 sound_test.bin
+```
+
+---
+
+### Method 3: Using Web Serial / ESP Web Tools (Browser Flash)
+
+You can flash the ESP32-S3 directly from a Web Serial compatible browser (Google Chrome, Microsoft Edge, or Opera):
+
+1. Connect the ESP32-S3 to your computer via USB.
+2. Open an online ESP Web Flasher tool (e.g., [adafruit.github.io/web-serial-esptool](https://adafruit.github.io/web-serial-esptool/) or [esp.toit.io](https://esp.toit.io/)).
+3. Click **Connect** and select the ESP32-S3 serial port.
+4. Select `esp32s3-sd-audio-player-merged.bin` at offset `0x00000`.
+5. Click **Program / Flash**.
+
+---
+
+### Method 4: Building from Source using ESP-IDF CLI
 
 1. Set up the ESP-IDF environment:
 ```bash
@@ -91,36 +128,6 @@ idf.py build
 idf.py -p /dev/ttyACM0 flash monitor
 ```
 *(Replace `/dev/ttyACM0` with `COMx` on Windows or `/dev/ttyUSBx` if applicable).*
-
----
-
-### Method 2: Using esptool.py (Direct Flash Command)
-
-If you already have precompiled binaries in the `build/` directory, you can flash directly using `esptool.py` without recompiling:
-
-```bash
-esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 \
-  --before=default_reset --after=hard_reset write_flash \
-  --flash_mode dio --flash_freq 80m --flash_size 16MB \
-  0x00000 bootloader/bootloader.bin \
-  0x08000 partition_table/partition-table.bin \
-  0x10000 sound_test.bin
-```
-
----
-
-### Method 3: Using Web Serial / ESP Web Tools (Browser Flash)
-
-You can flash the ESP32-S3 directly from a Web Serial compatible browser (Google Chrome, Microsoft Edge, or Opera):
-
-1. Connect the ESP32-S3 to your computer via USB.
-2. Open an online ESP Web Flasher tool (e.g., [adafruit.github.io/web-serial-esptool](https://adafruit.github.io/web-serial-esptool/) or [esp.toit.io](https://esp.toit.io/)).
-3. Click **Connect** and select the ESP32-S3 serial port.
-4. Add the generated binary files at their respective flash offsets:
-   - `0x00000` -> `build/bootloader/bootloader.bin`
-   - `0x08000` -> `build/partition_table/partition-table.bin`
-   - `0x10000` -> `build/sound_test.bin`
-5. Click **Program / Flash**.
 
 ---
 
