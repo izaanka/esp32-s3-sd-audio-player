@@ -1,10 +1,10 @@
 # ESP32-S3 USB-C DAC SD Sound Player
 
-A high-performance, standalone audio player built for the **ESP32-S3** microcontroller using **ESP-IDF v5.1**. Audio is output directly over USB Host to any standard **USB-C DAC dongle / USB-C headphones** using native USB Audio Class 1.0 (UAC), with track navigation, volume control, and metadata rendered on an **SSD1306 OLED display**.
+A high-performance, standalone audio player built for the ESP32-S3 microcontroller using ESP-IDF v5.1. Audio is output directly over USB Host to standard USB-C DAC dongles and USB-C headphones using native USB Audio Class 1.0 (UAC), with track navigation, volume control, and metadata rendered on an SSD1306 OLED display.
 
 ---
 
-## 🛠️ Hardware Requirements & Wiring
+## Hardware Requirements and Wiring
 
 | Component | Pin / Interface | ESP32-S3 Pin |
 | :--- | :--- | :--- |
@@ -25,37 +25,37 @@ A high-performance, standalone audio player built for the **ESP32-S3** microcont
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎧 **Native USB Host Audio Output**: Streams 16-bit Stereo PCM audio to USB Audio Class 1.0 (UAC) DACs (e.g. `Generic GHW-123P`).
-- 🔄 **Realtime Sample Rate Converter (SRC)**: Resamples 44.1kHz (or other input sample rates) to 48,000 Hz stereo in real-time to support DACs with fixed 48kHz hardware endpoints.
-- ⚡ **High Throughput & Zero-Lag Streaming**: 
+- **Native USB Host Audio Output**: Streams 16-bit Stereo PCM audio to standard USB Audio Class 1.0 (UAC) DAC devices.
+- **Realtime Sample Rate Converter (SRC)**: Resamples 44.1kHz (or other input sample rates) to 48,000 Hz stereo in real-time to support DACs with fixed 48kHz hardware endpoints.
+- **High Throughput and Streaming**: 
   - **20 MHz SPI** bus clock for the SD Card.
   - **16 KB stream buffering** (`setvbuf`) for high-speed sector reads.
-  - **32 KB UAC hardware ring-buffer** for >340ms buffer-underrun protection.
-- 🎵 **Audio Decoders**:
+  - **32 KB UAC hardware ring-buffer** for buffer-underrun protection.
+- **Audio Decoders**:
   - **WAV**: Uncompressed PCM (8/16-bit, Mono/Stereo, arbitrary sample rates).
   - **MP3**: High-efficiency LibHelix fixed-point MP3 decoder with automatic ID3v2 tag skipping.
-- 🔀 **4 Playback Loop Modes**:
+- **4 Playback Loop Modes**:
   - `Seq` (Sequential): Plays all tracks and stops at the end of the SD card.
   - `All` (Loop All): Repeats the playlist continuously.
   - `One` (Loop One): Repeats the current track continuously.
   - `Shuf` (Shuffle): Plays tracks in random order.
-- 🔊 **Dual Volume Control**:
+- **Dual Volume Control**:
   - **Hardware Volume**: Adjusts physical DAC hardware output directly via UAC control transfers.
   - **Software Volume**: Scales PCM sample amplitudes in software.
   - **Default Volume**: 50% on startup.
-- 📺 **Rich SSD1306 OLED UI**:
+- **Rich SSD1306 OLED UI**:
   - Live Header: Volume level (`V:50%`).
   - Track Index: `Track X / Y`.
   - Auto-scrolling long filenames.
   - Audio Format: `Sample Rate`, `Bit Depth`, `Stereo/Mono`.
-  - Progress Bar & Elapsed/Total Duration (`MM:SS`).
+  - Progress Bar and Elapsed/Total Duration (`MM:SS`).
   - DAC Connection Status (`DAC:OK` vs `NO DAC`).
 
 ---
 
-## 🎛️ User Controls
+## User Controls
 
 | Button | Short Press | Long Press (>0.8s) |
 | :--- | :--- | :--- |
@@ -66,30 +66,65 @@ A high-performance, standalone audio player built for the **ESP32-S3** microcont
 
 ---
 
-## 🚀 Building & Flashing
+## Building and Flashing Methods
 
 ### Prerequisites
-- [ESP-IDF v5.1+](https://docs.espressif.com/projects/esp-idf/en/v5.1.2/esp32s3/get-started/index.html) installed.
-- ESP32-S3 board with Octal PSRAM enabled.
+- ESP-IDF v5.1+ installed and exported.
+- ESP32-S3 board connected via USB (UART/CDC Port).
 
-### Build Commands
+---
+
+### Method 1: Using ESP-IDF CLI (Recommended)
+
+1. Set up the ESP-IDF environment:
 ```bash
-# 1. Set up ESP-IDF environment variables
 source ~/esp/esp-idf/export.sh
+```
 
-# 2. Navigate to project directory
-cd /home/izaan/Documents/sound_test
-
-# 3. Build the project
+2. Build the project binaries:
+```bash
 idf.py build
+```
 
-# 4. Flash and open serial monitor
+3. Flash to the ESP32-S3 board and launch the serial monitor:
+```bash
 idf.py -p /dev/ttyACM0 flash monitor
+```
+*(Replace `/dev/ttyACM0` with `COMx` on Windows or `/dev/ttyUSBx` if applicable).*
+
+---
+
+### Method 2: Using esptool.py (Direct Flash Command)
+
+If you already have precompiled binaries in the `build/` directory, you can flash directly using `esptool.py` without recompiling:
+
+```bash
+esptool.py --chip esp32s3 -p /dev/ttyACM0 -b 460800 \
+  --before=default_reset --after=hard_reset write_flash \
+  --flash_mode dio --flash_freq 80m --flash_size 16MB \
+  0x00000 bootloader/bootloader.bin \
+  0x08000 partition_table/partition-table.bin \
+  0x10000 sound_test.bin
 ```
 
 ---
 
-## 📁 Project Architecture
+### Method 3: Using Web Serial / ESP Web Tools (Browser Flash)
+
+You can flash the ESP32-S3 directly from a Web Serial compatible browser (Google Chrome, Microsoft Edge, or Opera):
+
+1. Connect the ESP32-S3 to your computer via USB.
+2. Open an online ESP Web Flasher tool (e.g., [adafruit.github.io/web-serial-esptool](https://adafruit.github.io/web-serial-esptool/) or [esp.toit.io](https://esp.toit.io/)).
+3. Click **Connect** and select the ESP32-S3 serial port.
+4. Add the generated binary files at their respective flash offsets:
+   - `0x00000` -> `build/bootloader/bootloader.bin`
+   - `0x08000` -> `build/partition_table/partition-table.bin`
+   - `0x10000` -> `build/sound_test.bin`
+5. Click **Program / Flash**.
+
+---
+
+## Project Architecture
 
 ```text
 sound_test/
