@@ -136,11 +136,28 @@ typedef enum {
     BTN_EVT_DOWN_SHORT,
     BTN_EVT_DOWN_LONG,
     BTN_EVT_BACK_SHORT,
+    BTN_EVT_BACK_LONG,
 } button_event_t;
+
+/// UI Display States
+typedef enum {
+    UI_STATE_BOOT = 0,
+    UI_STATE_BROWSER,
+    UI_STATE_PLAYER,
+} ui_state_t;
 
 // =====================================================================
 // DATA STRUCTURES
 // =====================================================================
+
+/// Browser item (folder or audio file)
+#define MAX_BROWSER_ITEMS 128
+typedef struct {
+    char name[MAX_NAME_LEN];
+    char path[MAX_PATH_LEN];
+    bool is_dir;
+    audio_format_t format;
+} browser_item_t;
 
 /// Information about a single audio track
 typedef struct {
@@ -178,9 +195,14 @@ extern SemaphoreHandle_t g_state_mutex;
 /// Shared player state
 extern player_state_t g_player_state;
 
-/// Track list (populated by sd_card scanner)
+/// Track list (populated by sd_card scanner for active playlist)
 extern track_info_t g_tracks[MAX_TRACKS];
 extern int g_track_count;
+
+/// Browser item list (populated by sd_card directory scanner)
+extern browser_item_t g_browser_items[MAX_BROWSER_ITEMS];
+extern int g_browser_item_count;
+extern ui_state_t g_ui_state;
 
 // =====================================================================
 // UTILITY MACROS

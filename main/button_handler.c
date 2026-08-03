@@ -22,7 +22,7 @@ static button_state_t buttons[] = {
     {PIN_BTN_SELECT, BTN_EVT_SELECT_SHORT, BTN_EVT_NONE, false, true, true, 0, 0, false},
     {PIN_BTN_UP, BTN_EVT_UP_SHORT, BTN_EVT_UP_LONG, true, true, true, 0, 0, false},
     {PIN_BTN_DOWN, BTN_EVT_DOWN_SHORT, BTN_EVT_DOWN_LONG, true, true, true, 0, 0, false},
-    {PIN_BTN_BACK, BTN_EVT_BACK_SHORT, BTN_EVT_NONE, false, true, true, 0, 0, false}
+    {PIN_BTN_BACK, BTN_EVT_BACK_SHORT, BTN_EVT_BACK_LONG, true, true, true, 0, 0, false}
 };
 
 #define NUM_BUTTONS (sizeof(buttons)/sizeof(buttons[0]))

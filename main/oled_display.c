@@ -267,6 +267,99 @@ void oled_update(const player_state_t *state) {
     fb_flush();
 }
 
+void oled_draw_boot_screen(void) {
+    fb_clear();
+    
+    // Header
+    fb_draw_string(16, 2, "SD MUSIC PLAYER");
+    fb_draw_hline(0, 11, 128);
+    
+    // Music Note Icon (16x16 pixel graphic at x=56, y=18)
+    static const uint16_t music_note_bitmap[16] = {
+        0x03E0, 0x03F0, 0x0318, 0x0318,
+        0x0318, 0x0318, 0x0318, 0x0318,
+        0x0318, 0x0318, 0x0F18, 0x1F98,
+        0x1FF8, 0x0EF0, 0x00E0, 0x0000
+    };
+    
+    int icon_x = 56;
+    int icon_y = 16;
+    for (int r = 0; r < 16; r++) {
+        uint16_t row = music_note_bitmap[r];
+        for (int c = 0; c < 16; c++) {
+            if (row & (1 << (15 - c))) {
+                fb_set_pixel(icon_x + c, icon_y + r, true);
+            }
+        }
+    }
+    
+    // Instructions
+    fb_draw_string(14, 38, "Press SELECT");
+    fb_draw_string(20, 48, "to Browse");
+    
+    fb_draw_hline(0, 57, 128);
+    fb_draw_string(26, 58, "Ready...");
+    
+    fb_flush();
+}
+
+void oled_draw_browser(const char *current_path, int selected_index) {
+    fb_clear();
+    
+    // Header line - path
+    char path_buf[22];
+    int path_len = strlen(current_path);
+    if (path_len > 21) {
+        snprintf(path_buf, sizeof(path_buf), "...%s", current_path + (path_len - 18));
+    } else {
+        snprintf(path_buf, sizeof(path_buf), "%s", current_path);
+    }
+    fb_draw_string(0, 0, path_buf);
+    fb_draw_hline(0, 9, 128);
+    
+    if (g_browser_item_count == 0) {
+        fb_draw_string(10, 24, "Empty Directory");
+        fb_draw_string(10, 36, "LONG BACK: Up");
+    } else {
+        // Compute visible range (5 items visible lines 12..51)
+        int top = selected_index - 2;
+        if (top < 0) top = 0;
+        if (top + 5 > g_browser_item_count && g_browser_item_count >= 5) {
+            top = g_browser_item_count - 5;
+        }
+        if (top < 0) top = 0;
+        
+        for (int i = 0; i < 5; i++) {
+            int idx = top + i;
+            if (idx >= g_browser_item_count) break;
+            
+            int y = 12 + (i * 9);
+            bool is_sel = (idx == selected_index);
+            
+            char line_buf[128];
+            browser_item_t *item = &g_browser_items[idx];
+            if (item->is_dir) {
+                snprintf(line_buf, sizeof(line_buf), "%c[%s]", is_sel ? '>' : ' ', item->name);
+            } else {
+                snprintf(line_buf, sizeof(line_buf), "%c %s", is_sel ? '>' : ' ', item->name);
+            }
+            line_buf[21] = '\0';
+            
+            fb_draw_string(0, y, line_buf);
+        }
+    }
+    
+    // Footer line
+    fb_draw_hline(0, 56, 128);
+    char footer_buf[64];
+    snprintf(footer_buf, sizeof(footer_buf), "%d/%d | BACK:Exit", 
+             g_browser_item_count > 0 ? selected_index + 1 : 0, g_browser_item_count);
+    footer_buf[21] = '\0';
+    fb_draw_string(0, 57, footer_buf);
+    
+    fb_flush();
+}
+
 void oled_show_message(const char *line1, const char *line2) {
     fb_clear();
     if (line1) fb_draw_string(0, 24, line1);

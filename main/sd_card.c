@@ -126,8 +126,74 @@ void sd_card_deinit(void) {
     s_card = NULL;
 }
 
+static int compare_browser_items(const void *a, const void *b) {
+    const browser_item_t *ia = (const browser_item_t *)a;
+    const browser_item_t *ib = (const browser_item_t *)b;
+    if (ia->is_dir && !ib->is_dir) return -1;
+    if (!ia->is_dir && ib->is_dir) return 1;
+    return strcasecmp(ia->name, ib->name);
+}
+
+int sd_card_list_dir(const char *dir_path) {
+    g_browser_item_count = 0;
+    if (!s_mounted || !dir_path) return 0;
+    
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        ESP_LOGE(TAG, "Failed to open directory for listing: %s", dir_path);
+        return 0;
+    }
+    
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL && g_browser_item_count < MAX_BROWSER_ITEMS) {
+        if (entry->d_name[0] == '.') continue; // Skip hidden/dot files
+        
+        char full_path[512];
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+        
+        struct stat st;
+        if (stat(full_path, &st) == 0) {
+            if (S_ISDIR(st.st_mode)) {
+                browser_item_t *item = &g_browser_items[g_browser_item_count];
+                strncpy(item->path, full_path, MAX_PATH_LEN - 1);
+                item->path[MAX_PATH_LEN - 1] = '\0';
+                strncpy(item->name, entry->d_name, MAX_NAME_LEN - 1);
+                item->name[MAX_NAME_LEN - 1] = '\0';
+                item->is_dir = true;
+                item->format = FORMAT_UNKNOWN;
+                g_browser_item_count++;
+            } else if (S_ISREG(st.st_mode)) {
+                audio_format_t format = FORMAT_UNKNOWN;
+                if (has_extension(entry->d_name, ".wav")) {
+                    format = FORMAT_WAV;
+                } else if (has_extension(entry->d_name, ".mp3")) {
+                    format = FORMAT_MP3;
+                }
+                
+                if (format != FORMAT_UNKNOWN) {
+                    browser_item_t *item = &g_browser_items[g_browser_item_count];
+                    strncpy(item->path, full_path, MAX_PATH_LEN - 1);
+                    item->path[MAX_PATH_LEN - 1] = '\0';
+                    extract_name(entry->d_name, item->name, MAX_NAME_LEN);
+                    item->is_dir = false;
+                    item->format = format;
+                    g_browser_item_count++;
+                }
+            }
+        }
+    }
+    closedir(dir);
+    
+    if (g_browser_item_count > 0) {
+        qsort(g_browser_items, g_browser_item_count, sizeof(browser_item_t), compare_browser_items);
+    }
+    
+    ESP_LOGI(TAG, "Listed %d items in %s", g_browser_item_count, dir_path);
+    return g_browser_item_count;
+}
+
 static void scan_dir(const char *dir_path, int depth) {
-    if (depth > 1) return; // Only root and one level deep
+    if (depth > 4) return; // Support up to 4 subfolder levels deep
     
     DIR *dir = opendir(dir_path);
     if (!dir) {
@@ -137,10 +203,7 @@ static void scan_dir(const char *dir_path, int depth) {
     
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL && g_track_count < MAX_TRACKS) {
-        // Ignore hidden files and dotfiles (e.g. ._song.mp3, .DS_Store)
-        if (entry->d_name[0] == '.') {
-            continue;
-        }
+        if (entry->d_name[0] == '.') continue;
         
         char full_path[512];
         snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
@@ -172,17 +235,18 @@ static void scan_dir(const char *dir_path, int depth) {
     closedir(dir);
 }
 
-int sd_card_scan_audio(void) {
+int sd_card_scan_audio(const char *target_dir) {
     g_track_count = 0;
     if (!s_mounted) return 0;
     
-    scan_dir(SD_MOUNT_POINT, 0);
+    const char *start_path = target_dir ? target_dir : SD_MOUNT_POINT;
+    scan_dir(start_path, 0);
     
     if (g_track_count > 0) {
         qsort(g_tracks, g_track_count, sizeof(track_info_t), compare_tracks);
     }
     
-    ESP_LOGI(TAG, "Found %d audio files", g_track_count);
+    ESP_LOGI(TAG, "Found %d audio files in %s", g_track_count, start_path);
     return g_track_count;
 }
 
