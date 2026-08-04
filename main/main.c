@@ -28,6 +28,7 @@ ui_state_t g_ui_state = UI_STATE_BOOT;
 
 static char g_current_dir[MAX_PATH_LEN] = SD_MOUNT_POINT;
 static int g_browser_selected = 0;
+static int g_boot_selected = 0;
 
 #define OLED_SLEEP_TIMEOUT_MS 15000 // 15 seconds auto-sleep timeout to prevent OLED burn-in
 
@@ -52,10 +53,16 @@ void ui_task(void *arg) {
 
                 switch (g_ui_state) {
                     case UI_STATE_BOOT:
-                        if (evt == BTN_EVT_SELECT_SHORT || evt == BTN_EVT_UP_SHORT || evt == BTN_EVT_DOWN_SHORT) {
-                            sd_card_list_dir(g_current_dir);
-                            g_browser_selected = 0;
-                            g_ui_state = UI_STATE_BROWSER;
+                        if (evt == BTN_EVT_UP_SHORT) {
+                            if (g_boot_selected > 0) g_boot_selected--;
+                        } else if (evt == BTN_EVT_DOWN_SHORT) {
+                            if (g_boot_selected < 0) g_boot_selected++; // Currently 1 item
+                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                            if (g_boot_selected == 0) { // 1. Music Player
+                                sd_card_list_dir(g_current_dir);
+                                g_browser_selected = 0;
+                                g_ui_state = UI_STATE_BROWSER;
+                            }
                         }
                         break;
 
@@ -172,7 +179,7 @@ void ui_task(void *arg) {
         if (!oled_is_sleeping() && ((xTaskGetTickCount() - last_oled_update) >= pdMS_TO_TICKS(OLED_REFRESH_INTERVAL_MS))) {
             switch (g_ui_state) {
                 case UI_STATE_BOOT:
-                    oled_draw_boot_screen();
+                    oled_draw_boot_screen(g_boot_selected);
                     break;
                 case UI_STATE_BROWSER:
                     oled_draw_browser(g_current_dir, g_browser_selected);
@@ -220,7 +227,7 @@ void app_main(void) {
     } else {
         // SD card mounted successfully! Show boot screen.
         g_ui_state = UI_STATE_BOOT;
-        oled_draw_boot_screen();
+        oled_draw_boot_screen(g_boot_selected);
     }
 
     // 5. Init USB Audio Output (USB Host UAC)

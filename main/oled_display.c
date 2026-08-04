@@ -267,38 +267,29 @@ void oled_update(const player_state_t *state) {
     fb_flush();
 }
 
-void oled_draw_boot_screen(void) {
+void oled_draw_boot_screen(int selected_index) {
     fb_clear();
     
     // Header
-    fb_draw_string(16, 2, "SD MUSIC PLAYER");
+    fb_draw_string(10, 2, "ESP32-S3 Explorer");
     fb_draw_hline(0, 11, 128);
     
-    // Music Note Icon (16x16 pixel graphic at x=56, y=18)
-    static const uint16_t music_note_bitmap[16] = {
-        0x03E0, 0x03F0, 0x0318, 0x0318,
-        0x0318, 0x0318, 0x0318, 0x0318,
-        0x0318, 0x0318, 0x0F18, 0x1F98,
-        0x1FF8, 0x0EF0, 0x00E0, 0x0000
+    // Menu List
+    static const char *menu_items[] = {
+        "1. Music Player"
     };
+    int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
     
-    int icon_x = 56;
-    int icon_y = 16;
-    for (int r = 0; r < 16; r++) {
-        uint16_t row = music_note_bitmap[r];
-        for (int c = 0; c < 16; c++) {
-            if (row & (1 << (15 - c))) {
-                fb_set_pixel(icon_x + c, icon_y + r, true);
-            }
-        }
+    for (int i = 0; i < num_items; i++) {
+        char buf[32];
+        bool is_sel = (i == selected_index);
+        snprintf(buf, sizeof(buf), "%c %s", is_sel ? '>' : ' ', menu_items[i]);
+        fb_draw_string(4, 18 + (i * 12), buf);
     }
     
-    // Instructions
-    fb_draw_string(14, 38, "Press SELECT");
-    fb_draw_string(20, 48, "to Browse");
-    
-    fb_draw_hline(0, 57, 128);
-    fb_draw_string(26, 58, "Ready...");
+    // Footer
+    fb_draw_hline(0, 56, 128);
+    fb_draw_string(16, 57, "SELECT: Open Menu");
     
     fb_flush();
 }
