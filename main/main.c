@@ -63,7 +63,40 @@ void ui_task(void *arg) {
                                 g_browser_selected = 0;
                                 g_ui_state = UI_STATE_BROWSER;
                             } else if (g_boot_selected == 1) { // 2. Player
-                                g_ui_state = UI_STATE_PLAYER;
+                                xSemaphoreTake(g_state_mutex, portMAX_DELAY);
+                                player_status_t cur_st = g_player_state.status;
+                                xSemaphoreGive(g_state_mutex);
+
+                                if (cur_st == STATUS_PLAYING || cur_st == STATUS_PAUSED) {
+                                    // Re-enter player UI for currently playing track
+                                    g_ui_state = UI_STATE_PLAYER;
+                                } else {
+                                    // Nothing playing -> scan entire SD card and start playback immediately
+                                    sd_card_scan_audio(SD_MOUNT_POINT);
+
+                                    xSemaphoreTake(g_state_mutex, portMAX_DELAY);
+                                    g_player_state.total_tracks = g_track_count;
+                                    if (g_track_count > 0) {
+                                        g_player_state.track_index = 0;
+                                        strncpy(g_player_state.track_name, g_tracks[0].name, MAX_NAME_LEN - 1);
+                                        g_player_state.track_name[MAX_NAME_LEN - 1] = '\0';
+                                        g_player_state.status = STATUS_STOPPED;
+                                        xSemaphoreGive(g_state_mutex);
+
+                                        cmd = CMD_STOP;
+                                        xQueueSend(g_cmd_queue, &cmd, pdMS_TO_TICKS(50));
+                                        cmd = CMD_PLAY;
+                                        xQueueSend(g_cmd_queue, &cmd, pdMS_TO_TICKS(50));
+
+                                        g_ui_state = UI_STATE_PLAYER;
+                                    } else {
+                                        g_player_state.status = STATUS_ERROR;
+                                        snprintf(g_player_state.error_msg, sizeof(g_player_state.error_msg), "No audio files found");
+                                        xSemaphoreGive(g_state_mutex);
+                                        oled_show_message("ERROR", "No Audio Files!");
+                                        vTaskDelay(pdMS_TO_TICKS(1000));
+                                    }
+                                }
                             }
                         }
                         break;
