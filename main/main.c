@@ -56,12 +56,14 @@ void ui_task(void *arg) {
                         if (evt == BTN_EVT_UP_SHORT) {
                             if (g_boot_selected > 0) g_boot_selected--;
                         } else if (evt == BTN_EVT_DOWN_SHORT) {
-                            if (g_boot_selected < 0) g_boot_selected++; // Currently 1 item
+                            if (g_boot_selected < 1) g_boot_selected++;
                         } else if (evt == BTN_EVT_SELECT_SHORT) {
                             if (g_boot_selected == 0) { // 1. Music Player
                                 sd_card_list_dir(g_current_dir);
                                 g_browser_selected = 0;
                                 g_ui_state = UI_STATE_BROWSER;
+                            } else if (g_boot_selected == 1) { // 2. Player
+                                g_ui_state = UI_STATE_PLAYER;
                             }
                         }
                         break;

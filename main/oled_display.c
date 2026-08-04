@@ -276,7 +276,8 @@ void oled_draw_boot_screen(int selected_index) {
     
     // Menu List
     static const char *menu_items[] = {
-        "1. Music Player"
+        "1. Music Player",
+        "2. Player"
     };
     int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
     
