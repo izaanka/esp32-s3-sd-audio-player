@@ -150,6 +150,7 @@ typedef enum {
     UI_STATE_EREADER_MENU,
     UI_STATE_AUTOSCROLL_MENU,
     UI_STATE_BOOKMARK_MENU,
+    UI_STATE_GOTO_PAGE_MENU,
 } ui_state_t;
 
 // =====================================================================

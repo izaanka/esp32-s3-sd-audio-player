@@ -286,6 +286,16 @@ bool ereader_jump_to_bookmark(int index) {
     return true;
 }
 
+bool ereader_jump_to_page(int page_index) {
+    if (!s_is_open || s_info.total_pages == 0) return false;
+    if (page_index < 0) page_index = 0;
+    if (page_index >= s_info.total_pages) page_index = s_info.total_pages - 1;
+    
+    s_info.current_page = page_index;
+    s_last_autoscroll_time = (uint32_t)(esp_timer_get_time() / 1000);
+    return true;
+}
+
 void ereader_cycle_autoscroll(void) {
     if (s_info.auto_scroll_sec == 0) s_info.auto_scroll_sec = 5;
     else if (s_info.auto_scroll_sec == 5) s_info.auto_scroll_sec = 10;

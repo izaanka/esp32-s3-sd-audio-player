@@ -31,12 +31,13 @@ static char g_current_dir[MAX_PATH_LEN] = SD_MOUNT_POINT;
 static int g_browser_selected = 0;
 static int g_boot_selected = 0;
 static int g_ereader_menu_selected = 0;
-static int g_bookmark_jump_idx = 0;
 
 static const int g_autoscroll_timings[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30};
 #define NUM_AUTOSCROLL_TIMINGS (sizeof(g_autoscroll_timings)/sizeof(g_autoscroll_timings[0]))
 static int g_autoscroll_menu_selected = 0;
 static int g_bookmark_menu_selected = 0;
+static int g_goto_digits[4] = {0, 0, 0, 0};
+static int g_active_digit = 0;
 
 #define OLED_SLEEP_TIMEOUT_MS 15000 // 15 seconds auto-sleep timeout to prevent OLED burn-in
 
@@ -243,7 +244,7 @@ void ui_task(void *arg) {
                         if (evt == BTN_EVT_UP_SHORT) {
                             if (g_ereader_menu_selected > 0) g_ereader_menu_selected--;
                         } else if (evt == BTN_EVT_DOWN_SHORT) {
-                            if (g_ereader_menu_selected < 3) g_ereader_menu_selected++;
+                            if (g_ereader_menu_selected < 4) g_ereader_menu_selected++;
                         } else if (evt == BTN_EVT_SELECT_SHORT) {
                             if (g_ereader_menu_selected == 0) {
                                 const ereader_info_t *info = ereader_get_info();
@@ -262,6 +263,15 @@ void ui_task(void *arg) {
                                 g_bookmark_menu_selected = 0;
                                 g_ui_state = UI_STATE_BOOKMARK_MENU;
                             } else if (g_ereader_menu_selected == 3) {
+                                const ereader_info_t *info = ereader_get_info();
+                                int cur_p = info->current_page + 1;
+                                g_goto_digits[0] = (cur_p / 1000) % 10;
+                                g_goto_digits[1] = (cur_p / 100) % 10;
+                                g_goto_digits[2] = (cur_p / 10) % 10;
+                                g_goto_digits[3] = cur_p % 10;
+                                g_active_digit = 0;
+                                g_ui_state = UI_STATE_GOTO_PAGE_MENU;
+                            } else if (g_ereader_menu_selected == 4) {
                                 ereader_close();
                                 sd_card_list_txt_dir(g_current_dir);
                                 g_ui_state = UI_STATE_TXT_BROWSER;
@@ -299,6 +309,30 @@ void ui_task(void *arg) {
                             } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
                                 g_ui_state = UI_STATE_EREADER_MENU;
                             }
+                        }
+                        break;
+
+                    case UI_STATE_GOTO_PAGE_MENU:
+                        if (evt == BTN_EVT_UP_SHORT) {
+                            g_goto_digits[g_active_digit] = (g_goto_digits[g_active_digit] + 1) % 10;
+                        } else if (evt == BTN_EVT_DOWN_SHORT) {
+                            g_goto_digits[g_active_digit] = (g_goto_digits[g_active_digit] + 9) % 10;
+                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                            if (g_active_digit < 3) {
+                                g_active_digit++;
+                            } else {
+                                int target_p = g_goto_digits[0] * 1000 + g_goto_digits[1] * 100 + g_goto_digits[2] * 10 + g_goto_digits[3];
+                                ereader_jump_to_page(target_p - 1);
+                                g_ui_state = UI_STATE_EREADER;
+                            }
+                        } else if (evt == BTN_EVT_BACK_SHORT) {
+                            if (g_active_digit > 0) {
+                                g_active_digit--;
+                            } else {
+                                g_ui_state = UI_STATE_EREADER_MENU;
+                            }
+                        } else if (evt == BTN_EVT_BACK_LONG) {
+                            g_ui_state = UI_STATE_EREADER_MENU;
                         }
                         break;
 
@@ -366,6 +400,12 @@ void ui_task(void *arg) {
                     break;
                 case UI_STATE_BOOKMARK_MENU:
                     oled_draw_bookmark_menu(g_bookmark_menu_selected);
+                    break;
+                case UI_STATE_GOTO_PAGE_MENU:
+                    {
+                        const ereader_info_t *info = ereader_get_info();
+                        oled_draw_goto_page_menu(g_goto_digits, g_active_digit, info->total_pages);
+                    }
                     break;
                 case UI_STATE_PLAYER:
                     xSemaphoreTake(g_state_mutex, portMAX_DELAY);

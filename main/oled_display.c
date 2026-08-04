@@ -341,7 +341,8 @@ void oled_draw_ereader_menu(int menu_index) {
         auto_buf,
         "2. Add Bookmark",
         "3. View Bookmarks",
-        "4. Exit Reader"
+        "4. Go to Page",
+        "5. Exit Reader"
     };
     int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
     
@@ -349,7 +350,7 @@ void oled_draw_ereader_menu(int menu_index) {
         char buf[32];
         bool is_sel = (i == menu_index);
         snprintf(buf, sizeof(buf), "%c %s", is_sel ? '>' : ' ', menu_items[i]);
-        fb_draw_string(0, 16 + (i * 10), buf);
+        fb_draw_string(0, 14 + (i * 9), buf);
     }
     
     fb_draw_hline(0, 56, 128);
@@ -436,6 +437,41 @@ void oled_draw_bookmark_menu(int selected_index) {
     } else {
         snprintf(footer, sizeof(footer), "BACK: Return");
     }
+    fb_draw_string(0, 57, footer);
+    
+    fb_flush();
+}
+
+void oled_draw_goto_page_menu(const int digits[4], int active_digit, int total_pages) {
+    fb_clear();
+    
+    fb_draw_string(30, 2, "Go to Page");
+    fb_draw_hline(0, 11, 128);
+    
+    char page_str[32];
+    snprintf(page_str, sizeof(page_str), "Total Pages: %d", total_pages);
+    fb_draw_string(14, 16, page_str);
+    
+    int start_x = 24;
+    int y = 32;
+    for (int d = 0; d < 4; d++) {
+        int x = start_x + (d * 22);
+        char digit_char = '0' + digits[d];
+        if (d == active_digit) {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "[%c]", digit_char);
+            fb_draw_string(x - 6, y, buf);
+        } else {
+            char buf[2];
+            buf[0] = digit_char;
+            buf[1] = '\0';
+            fb_draw_string(x, y, buf);
+        }
+    }
+    
+    fb_draw_hline(0, 56, 128);
+    char footer[64];
+    snprintf(footer, sizeof(footer), "UP/DN:Val|SEL:%s", active_digit == 3 ? "Jump" : "Next");
     fb_draw_string(0, 57, footer);
     
     fb_flush();

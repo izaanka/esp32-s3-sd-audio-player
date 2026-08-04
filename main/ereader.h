@@ -34,6 +34,7 @@ void ereader_add_bookmark(void);
 int ereader_get_bookmark_count(void);
 const ereader_bookmark_t* ereader_get_bookmark(int index);
 bool ereader_jump_to_bookmark(int index);
+bool ereader_jump_to_page(int page_index);
 
 void ereader_cycle_autoscroll(void);
 void ereader_set_autoscroll_sec(int sec);
