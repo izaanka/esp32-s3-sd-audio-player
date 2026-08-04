@@ -270,6 +270,13 @@ void ereader_cycle_autoscroll(void) {
     s_last_autoscroll_time = (uint32_t)(esp_timer_get_time() / 1000);
 }
 
+void ereader_set_autoscroll_sec(int sec) {
+    if (sec < 0) sec = 0;
+    s_info.auto_scroll_sec = sec;
+    s_last_autoscroll_time = (uint32_t)(esp_timer_get_time() / 1000);
+    save_progress();
+}
+
 bool ereader_check_autoscroll(void) {
     if (!s_is_open || s_info.auto_scroll_sec == 0) return false;
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);

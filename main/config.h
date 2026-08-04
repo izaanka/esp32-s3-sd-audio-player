@@ -148,6 +148,7 @@ typedef enum {
     UI_STATE_TXT_BROWSER,
     UI_STATE_EREADER,
     UI_STATE_EREADER_MENU,
+    UI_STATE_AUTOSCROLL_MENU,
 } ui_state_t;
 
 // =====================================================================

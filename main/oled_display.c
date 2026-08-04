@@ -358,6 +358,45 @@ void oled_draw_ereader_menu(int menu_index) {
     fb_flush();
 }
 
+void oled_draw_autoscroll_menu(int selected_index) {
+    fb_clear();
+    
+    fb_draw_string(14, 2, "AutoScroll Speed");
+    fb_draw_hline(0, 11, 128);
+    
+    static const int autoscroll_values[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30};
+    int total_options = sizeof(autoscroll_values) / sizeof(autoscroll_values[0]);
+    
+    int top = selected_index - 1;
+    if (top < 0) top = 0;
+    if (top + 4 > total_options) top = total_options - 4;
+    if (top < 0) top = 0;
+    
+    for (int i = 0; i < 4; i++) {
+        int idx = top + i;
+        if (idx >= total_options) break;
+        
+        int sec = autoscroll_values[idx];
+        bool is_sel = (idx == selected_index);
+        
+        char label[32];
+        if (sec == 0) {
+            snprintf(label, sizeof(label), "%c Off", is_sel ? '>' : ' ');
+        } else {
+            snprintf(label, sizeof(label), "%c %d seconds", is_sel ? '>' : ' ', sec);
+        }
+        
+        fb_draw_string(4, 14 + (i * 10), label);
+    }
+    
+    fb_draw_hline(0, 56, 128);
+    char footer[32];
+    snprintf(footer, sizeof(footer), "%d/%d | SELECT:Set", selected_index + 1, total_options);
+    fb_draw_string(0, 57, footer);
+    
+    fb_flush();
+}
+
 void oled_draw_browser(const char *current_path, int selected_index) {
     fb_clear();
     

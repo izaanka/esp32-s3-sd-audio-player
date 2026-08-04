@@ -33,6 +33,10 @@ static int g_boot_selected = 0;
 static int g_ereader_menu_selected = 0;
 static int g_bookmark_jump_idx = 0;
 
+static const int g_autoscroll_timings[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30};
+#define NUM_AUTOSCROLL_TIMINGS (sizeof(g_autoscroll_timings)/sizeof(g_autoscroll_timings[0]))
+static int g_autoscroll_menu_selected = 0;
+
 #define OLED_SLEEP_TIMEOUT_MS 15000 // 15 seconds auto-sleep timeout to prevent OLED burn-in
 
 // UI task function:
@@ -241,7 +245,15 @@ void ui_task(void *arg) {
                             if (g_ereader_menu_selected < 3) g_ereader_menu_selected++;
                         } else if (evt == BTN_EVT_SELECT_SHORT) {
                             if (g_ereader_menu_selected == 0) {
-                                ereader_cycle_autoscroll();
+                                const ereader_info_t *info = ereader_get_info();
+                                g_autoscroll_menu_selected = 0;
+                                for (int k = 0; k < NUM_AUTOSCROLL_TIMINGS; k++) {
+                                    if (g_autoscroll_timings[k] == info->auto_scroll_sec) {
+                                        g_autoscroll_menu_selected = k;
+                                        break;
+                                    }
+                                }
+                                g_ui_state = UI_STATE_AUTOSCROLL_MENU;
                             } else if (g_ereader_menu_selected == 1) {
                                 ereader_add_bookmark();
                                 g_ui_state = UI_STATE_EREADER;
@@ -259,6 +271,19 @@ void ui_task(void *arg) {
                             }
                         } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
                             g_ui_state = UI_STATE_EREADER;
+                        }
+                        break;
+
+                    case UI_STATE_AUTOSCROLL_MENU:
+                        if (evt == BTN_EVT_UP_SHORT) {
+                            if (g_autoscroll_menu_selected > 0) g_autoscroll_menu_selected--;
+                        } else if (evt == BTN_EVT_DOWN_SHORT) {
+                            if (g_autoscroll_menu_selected < NUM_AUTOSCROLL_TIMINGS - 1) g_autoscroll_menu_selected++;
+                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                            ereader_set_autoscroll_sec(g_autoscroll_timings[g_autoscroll_menu_selected]);
+                            g_ui_state = UI_STATE_EREADER;
+                        } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                            g_ui_state = UI_STATE_EREADER_MENU;
                         }
                         break;
 
@@ -320,6 +345,9 @@ void ui_task(void *arg) {
                     break;
                 case UI_STATE_EREADER_MENU:
                     oled_draw_ereader_menu(g_ereader_menu_selected);
+                    break;
+                case UI_STATE_AUTOSCROLL_MENU:
+                    oled_draw_autoscroll_menu(g_autoscroll_menu_selected);
                     break;
                 case UI_STATE_PLAYER:
                     xSemaphoreTake(g_state_mutex, portMAX_DELAY);
