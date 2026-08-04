@@ -9,6 +9,9 @@ idf_component_register(
         "button_handler.c"
         "oled_display.c"
         "ereader.c"
+        "arcade_engine.c"
+        "arcade_lightsout.c"
+        "arcade_morse.c"
     INCLUDE_DIRS "."
     REQUIRES
         driver

@@ -64,11 +64,44 @@ static void fb_draw_rect_filled(int x, int y, int w, int h) {
     }
 }
 
+static void fb_draw_rect(int x, int y, int w, int h) {
+    for (int i = 0; i < w; i++) {
+        fb_set_pixel(x + i, y, true);
+        fb_set_pixel(x + i, y + h - 1, true);
+    }
+    for (int j = 0; j < h; j++) {
+        fb_set_pixel(x, y + j, true);
+        fb_set_pixel(x + w - 1, y + j, true);
+    }
+}
+
+#define ABS(x) ((x)>0?(x):-(x))
+static void fb_draw_line(int x0, int y0, int x1, int y1) {
+    int dx = ABS(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    int dy = -ABS(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2; 
+    while (1) {
+        fb_set_pixel(x0, y0, true);
+        if (x0 == x1 && y0 == y1) break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
 static void fb_flush(void) {
     if (panel_handle) {
         esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, OLED_WIDTH, OLED_HEIGHT, framebuf);
     }
 }
+
+// Public Wrappers for Arcade
+void oled_fb_clear(void) { fb_clear(); }
+void oled_fb_flush(void) { fb_flush(); }
+void oled_fb_draw_string(int x, int y, const char *str) { fb_draw_string(x, y, str); }
+void oled_fb_draw_rect(int x, int y, int w, int h) { fb_draw_rect(x, y, w, h); }
+void oled_fb_fill_rect(int x, int y, int w, int h) { fb_draw_rect_filled(x, y, w, h); }
+void oled_fb_draw_line(int x0, int y0, int x1, int y1) { fb_draw_line(x0, y0, x1, y1); }
 
 esp_err_t oled_init(void) {
     ESP_LOGI(TAG, "Initializing OLED...");
@@ -279,20 +312,62 @@ void oled_draw_boot_screen(int selected_index) {
     static const char *menu_items[] = {
         "1. Music Player",
         "2. Player",
-        "3. E-Reader"
+        "3. E-Reader",
+        "4. Arcade",
+        "5. Morse Translator",
+        "6. Settings"
     };
     int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
     
-    for (int i = 0; i < num_items; i++) {
+    int start_item = 0;
+    if (selected_index >= 3) {
+        start_item = selected_index - 2;
+    }
+    
+    int draw_count = 0;
+    for (int i = start_item; i < num_items && draw_count < 3; i++) {
         char buf[32];
         bool is_sel = (i == selected_index);
         snprintf(buf, sizeof(buf), "%c %s", is_sel ? '>' : ' ', menu_items[i]);
-        fb_draw_string(4, 18 + (i * 12), buf);
+        fb_draw_string(4, 18 + (draw_count * 12), buf);
+        draw_count++;
     }
     
     // Footer
     fb_draw_hline(0, 56, 128);
     fb_draw_string(16, 57, "SELECT: Open Menu");
+    
+    fb_flush();
+}
+
+void oled_draw_settings_screen(int ebooks_count, int music_count, uint64_t sd_used_mb, uint64_t sd_total_mb) {
+    fb_clear();
+    
+    fb_draw_string(20, 2, "SYSTEM SETTINGS");
+    fb_draw_hline(0, 11, 128);
+    
+    char buf[32];
+    snprintf(buf, sizeof(buf), "eBooks: %d files", ebooks_count);
+    fb_draw_string(0, 15, buf);
+    
+    snprintf(buf, sizeof(buf), "Music : %d files", music_count);
+    fb_draw_string(0, 25, buf);
+    
+    fb_draw_string(0, 35, "ESP32 Flash: 16 MB");
+    
+    if (sd_total_mb > 0) {
+        if (sd_total_mb >= 1024) {
+            snprintf(buf, sizeof(buf), "SD: %.1fG/%.1fG", (float)sd_used_mb / 1024.0f, (float)sd_total_mb / 1024.0f);
+        } else {
+            snprintf(buf, sizeof(buf), "SD: %lluM/%lluM", (unsigned long long)sd_used_mb, (unsigned long long)sd_total_mb);
+        }
+    } else {
+        snprintf(buf, sizeof(buf), "SD: Not Mounted");
+    }
+    fb_draw_string(0, 45, buf);
+    
+    fb_draw_hline(0, 56, 128);
+    fb_draw_string(16, 57, "< BACK to exit");
     
     fb_flush();
 }

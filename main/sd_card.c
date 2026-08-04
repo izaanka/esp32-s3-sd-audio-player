@@ -301,6 +301,59 @@ int sd_card_scan_audio(const char *target_dir) {
     return g_track_count;
 }
 
+static int count_txt_files_recursive(const char *dir_path) {
+    DIR *dir = opendir(dir_path);
+    if (!dir) return 0;
+    
+    int count = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.') continue;
+        
+        char full_path[512];
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+        
+        struct stat st;
+        if (stat(full_path, &st) == 0) {
+            if (S_ISDIR(st.st_mode)) {
+                count += count_txt_files_recursive(full_path);
+            } else if (S_ISREG(st.st_mode)) {
+                if (has_extension(entry->d_name, ".txt")) {
+                    count++;
+                }
+            }
+        }
+    }
+    closedir(dir);
+    return count;
+}
+
+int sd_card_count_ebooks(void) {
+    if (!s_mounted) return 0;
+    return count_txt_files_recursive(SD_MOUNT_POINT);
+}
+
+void sd_card_get_storage_info(uint64_t *used_mb, uint64_t *total_mb) {
+    if (!used_mb || !total_mb) return;
+    *used_mb = 0;
+    *total_mb = 0;
+    
+    if (!s_mounted) return;
+    
+    FATFS *fs;
+    DWORD fre_clust, fre_sect, tot_sect;
+    FRESULT res = f_getfree("0:", &fre_clust, &fs);
+    if (res == FR_OK && fs != NULL) {
+        tot_sect = (fs->n_fatent - 2) * fs->csize;
+        fre_sect = fre_clust * fs->csize;
+        
+        // 512 bytes per sector -> convert to MB
+        *total_mb = ((uint64_t)tot_sect * 512) / (1024 * 1024);
+        uint64_t free_mb = ((uint64_t)fre_sect * 512) / (1024 * 1024);
+        *used_mb = (*total_mb >= free_mb) ? (*total_mb - free_mb) : 0;
+    }
+}
+
 bool sd_card_is_mounted(void) {
     return s_mounted;
 }

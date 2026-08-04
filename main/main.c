@@ -13,6 +13,13 @@
 #include "oled_display.h"
 #include "audio_player.h"
 #include "ereader.h"
+#include "arcade_engine.h"
+#include "arcade_morse.h"
+
+void change_ui_state(ui_state_t new_state) {
+    extern ui_state_t g_ui_state;
+    g_ui_state = new_state;
+}
 
 static const char *TAG = "MAIN";
 
@@ -50,7 +57,8 @@ void ui_task(void *arg) {
     
     while (1) {
         // Poll buttons
-        button_event_t evt = button_poll();
+        bool fast_mode = (g_ui_state == UI_STATE_ARCADE);
+        button_event_t evt = button_poll(fast_mode);
         if (evt != BTN_EVT_NONE) {
             last_activity_time = xTaskGetTickCount();
             if (oled_is_sleeping()) {
@@ -65,7 +73,7 @@ void ui_task(void *arg) {
                         if (evt == BTN_EVT_UP_SHORT) {
                             if (g_boot_selected > 0) g_boot_selected--;
                         } else if (evt == BTN_EVT_DOWN_SHORT) {
-                            if (g_boot_selected < 2) g_boot_selected++;
+                            if (g_boot_selected < 5) g_boot_selected++;
                         } else if (evt == BTN_EVT_SELECT_SHORT) {
                             if (g_boot_selected == 0) { // 1. Music Player
                                 sd_card_list_dir(g_current_dir);
@@ -110,6 +118,17 @@ void ui_task(void *arg) {
                                 sd_card_list_txt_dir(g_current_dir);
                                 g_browser_selected = 0;
                                 g_ui_state = UI_STATE_TXT_BROWSER;
+                            } else if (g_boot_selected == 3) { // 4. Arcade
+                                arcade_init();
+                                g_ui_state = UI_STATE_ARCADE;
+                                evt = BTN_EVT_NONE;
+                            } else if (g_boot_selected == 4) { // 5. Morse Translator
+                                arcade_morse_init();
+                                g_ui_state = UI_STATE_MORSE;
+                                evt = BTN_EVT_NONE;
+                            } else if (g_boot_selected == 5) { // 6. Settings
+                                g_ui_state = UI_STATE_SETTINGS;
+                                evt = BTN_EVT_NONE;
                             }
                         }
                         break;
@@ -352,18 +371,39 @@ void ui_task(void *arg) {
                             case BTN_EVT_DOWN_LONG:  cmd = CMD_PREV;          break;
                             case BTN_EVT_BACK_SHORT: cmd = CMD_LOOP_TOGGLE;   break;
                             case BTN_EVT_BACK_LONG:
-                                // Long press BACK in player returns to browser!
-                                sd_card_list_dir(g_current_dir);
-                                g_ui_state = UI_STATE_BROWSER;
+                                // Long press BACK in player returns to main menu!
+                                g_ui_state = UI_STATE_BOOT;
                                 break;
                             default: break;
                         }
+                        break;
+
+                    case UI_STATE_ARCADE:
+                        break;
+
+                    case UI_STATE_SETTINGS:
+                        if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG || evt == BTN_EVT_SELECT_SHORT) {
+                            g_ui_state = UI_STATE_BOOT;
+                        }
+                        break;
+
+                    case UI_STATE_MORSE:
                         break;
                 }
 
                 if (cmd != CMD_NONE) {
                     xQueueSend(g_cmd_queue, &cmd, pdMS_TO_TICKS(50));
                 }
+            }
+        }
+        
+        if (g_ui_state == UI_STATE_ARCADE) {
+            arcade_update(evt);
+        } else if (g_ui_state == UI_STATE_MORSE) {
+            if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                g_ui_state = UI_STATE_BOOT;
+            } else {
+                arcade_morse_update(evt);
             }
         }
         
@@ -412,6 +452,19 @@ void ui_task(void *arg) {
                     memcpy(&local_state, &g_player_state, sizeof(player_state_t));
                     xSemaphoreGive(g_state_mutex);
                     oled_update(&local_state);
+                    break;
+                case UI_STATE_ARCADE:
+                case UI_STATE_MORSE:
+                    oled_fb_flush();
+                    break;
+                case UI_STATE_SETTINGS:
+                    {
+                        int ebooks = sd_card_count_ebooks();
+                        int music = sd_card_scan_audio(SD_MOUNT_POINT);
+                        uint64_t used_mb = 0, total_mb = 0;
+                        sd_card_get_storage_info(&used_mb, &total_mb);
+                        oled_draw_settings_screen(ebooks, music, used_mb, total_mb);
+                    }
                     break;
             }
             last_oled_update = xTaskGetTickCount();

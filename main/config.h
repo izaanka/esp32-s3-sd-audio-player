@@ -72,7 +72,7 @@
 // =====================================================================
 // BUTTON CONSTANTS
 // =====================================================================
-#define BTN_DEBOUNCE_MS            50
+#define BTN_DEBOUNCE_MS            20
 #define BTN_LONG_PRESS_MS          800
 #define BTN_POLL_INTERVAL_MS       10
 
@@ -151,6 +151,9 @@ typedef enum {
     UI_STATE_AUTOSCROLL_MENU,
     UI_STATE_BOOKMARK_MENU,
     UI_STATE_GOTO_PAGE_MENU,
+    UI_STATE_ARCADE,
+    UI_STATE_MORSE,
+    UI_STATE_SETTINGS
 } ui_state_t;
 
 // =====================================================================

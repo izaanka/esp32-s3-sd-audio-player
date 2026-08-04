@@ -44,7 +44,7 @@ void button_init(void) {
     ESP_LOGI(TAG, "Buttons initialized");
 }
 
-button_event_t button_poll(void) {
+button_event_t button_poll(bool fast_mode) {
     uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
     button_event_t ret_evt = BTN_EVT_NONE;
     
@@ -52,21 +52,23 @@ button_event_t button_poll(void) {
         button_state_t *btn = &buttons[i];
         bool reading = (gpio_get_level(btn->gpio) == 1);
         
-        if (reading != btn->last_state) {
-            btn->last_debounce_time = now;
-        }
-        
-        if ((now - btn->last_debounce_time) > BTN_DEBOUNCE_MS) {
-            if (reading != btn->current_state) {
+        if (reading != btn->current_state) {
+            if ((now - btn->last_debounce_time) > BTN_DEBOUNCE_MS) {
                 btn->current_state = reading;
+                btn->last_debounce_time = now;
                 
                 if (btn->current_state == false) {
-                    // Pressed
+                    // Pressed (Leading Edge)
                     btn->press_start_time = now;
                     btn->long_fired = false;
+                    bool fire_now = fast_mode || !btn->has_long;
+                    if (fire_now && ret_evt == BTN_EVT_NONE) {
+                        ret_evt = btn->evt_short;
+                    }
                 } else {
                     // Released
-                    if (!btn->long_fired && ret_evt == BTN_EVT_NONE) {
+                    bool fired_on_press = fast_mode || !btn->has_long;
+                    if (!fired_on_press && btn->has_long && !btn->long_fired && ret_evt == BTN_EVT_NONE) {
                         ret_evt = btn->evt_short;
                     }
                 }
@@ -82,8 +84,6 @@ button_event_t button_poll(void) {
                 }
             }
         }
-        
-        btn->last_state = reading;
     }
     
     return ret_evt;
