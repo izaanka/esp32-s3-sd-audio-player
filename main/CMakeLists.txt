@@ -8,6 +8,7 @@ idf_component_register(
         "audio_player.c"
         "button_handler.c"
         "oled_display.c"
+        "ereader.c"
     INCLUDE_DIRS "."
     REQUIRES
         driver

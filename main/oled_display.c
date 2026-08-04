@@ -1,6 +1,7 @@
 #include "oled_display.h"
 #include "font5x7.h"
 #include "usb_audio_output.h"
+#include "ereader.h"
 #include "driver/i2c.h"
 #include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_ops.h"
@@ -277,7 +278,8 @@ void oled_draw_boot_screen(int selected_index) {
     // Menu List
     static const char *menu_items[] = {
         "1. Music Player",
-        "2. Player"
+        "2. Player",
+        "3. E-Reader"
     };
     int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
     
@@ -291,6 +293,67 @@ void oled_draw_boot_screen(int selected_index) {
     // Footer
     fb_draw_hline(0, 56, 128);
     fb_draw_string(16, 57, "SELECT: Open Menu");
+    
+    fb_flush();
+}
+
+void oled_draw_ereader_page(void) {
+    fb_clear();
+    
+    char lines[6][22];
+    ereader_get_page_lines(lines);
+    
+    for (int i = 0; i < 6; i++) {
+        fb_draw_string(0, i * 9, lines[i]);
+    }
+    
+    fb_draw_hline(0, 55, 128);
+    
+    const ereader_info_t *info = ereader_get_info();
+    char footer[64];
+    const char *auto_str = "Off";
+    if (info->auto_scroll_sec == 5) auto_str = "5s";
+    else if (info->auto_scroll_sec == 10) auto_str = "10s";
+    else if (info->auto_scroll_sec == 15) auto_str = "15s";
+    
+    snprintf(footer, sizeof(footer), "Pg %d/%d|A:%s|B:%d", 
+             info->current_page + 1, 
+             info->total_pages > 0 ? info->total_pages : 1, 
+             auto_str, 
+             info->bookmark_count);
+    footer[21] = '\0';
+    fb_draw_string(0, 56, footer);
+    
+    fb_flush();
+}
+
+void oled_draw_ereader_menu(int menu_index) {
+    fb_clear();
+    
+    fb_draw_string(24, 2, "E-Reader Menu");
+    fb_draw_hline(0, 11, 128);
+    
+    const ereader_info_t *info = ereader_get_info();
+    char auto_buf[32];
+    snprintf(auto_buf, sizeof(auto_buf), "1. AutoScroll (%ds)", info->auto_scroll_sec);
+    
+    const char *menu_items[] = {
+        auto_buf,
+        "2. Add Bookmark",
+        "3. Jump Bookmark",
+        "4. Exit Reader"
+    };
+    int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
+    
+    for (int i = 0; i < num_items; i++) {
+        char buf[32];
+        bool is_sel = (i == menu_index);
+        snprintf(buf, sizeof(buf), "%c %s", is_sel ? '>' : ' ', menu_items[i]);
+        fb_draw_string(0, 16 + (i * 10), buf);
+    }
+    
+    fb_draw_hline(0, 56, 128);
+    fb_draw_string(20, 57, "SELECT: Apply");
     
     fb_flush();
 }

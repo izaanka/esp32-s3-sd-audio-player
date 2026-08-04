@@ -6,6 +6,8 @@ esp_err_t oled_init(void);
 void oled_update(const player_state_t *state);
 void oled_draw_boot_screen(int selected_index);
 void oled_draw_browser(const char *current_path, int selected_index);
+void oled_draw_ereader_page(void);
+void oled_draw_ereader_menu(int menu_index);
 void oled_show_message(const char *line1, const char *line2);
 void oled_clear(void);
 void oled_set_sleep(bool sleep);

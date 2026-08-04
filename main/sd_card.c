@@ -192,6 +192,57 @@ int sd_card_list_dir(const char *dir_path) {
     return g_browser_item_count;
 }
 
+int sd_card_list_txt_dir(const char *dir_path) {
+    g_browser_item_count = 0;
+    if (!s_mounted || !dir_path) return 0;
+    
+    DIR *dir = opendir(dir_path);
+    if (!dir) {
+        ESP_LOGE(TAG, "Failed to open directory for txt listing: %s", dir_path);
+        return 0;
+    }
+    
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL && g_browser_item_count < MAX_BROWSER_ITEMS) {
+        if (entry->d_name[0] == '.') continue;
+        
+        char full_path[512];
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+        
+        struct stat st;
+        if (stat(full_path, &st) == 0) {
+            if (S_ISDIR(st.st_mode)) {
+                browser_item_t *item = &g_browser_items[g_browser_item_count];
+                strncpy(item->path, full_path, MAX_PATH_LEN - 1);
+                item->path[MAX_PATH_LEN - 1] = '\0';
+                strncpy(item->name, entry->d_name, MAX_NAME_LEN - 1);
+                item->name[MAX_NAME_LEN - 1] = '\0';
+                item->is_dir = true;
+                item->format = FORMAT_UNKNOWN;
+                g_browser_item_count++;
+            } else if (S_ISREG(st.st_mode)) {
+                if (has_extension(entry->d_name, ".txt")) {
+                    browser_item_t *item = &g_browser_items[g_browser_item_count];
+                    strncpy(item->path, full_path, MAX_PATH_LEN - 1);
+                    item->path[MAX_PATH_LEN - 1] = '\0';
+                    extract_name(entry->d_name, item->name, MAX_NAME_LEN);
+                    item->is_dir = false;
+                    item->format = FORMAT_TXT;
+                    g_browser_item_count++;
+                }
+            }
+        }
+    }
+    closedir(dir);
+    
+    if (g_browser_item_count > 0) {
+        qsort(g_browser_items, g_browser_item_count, sizeof(browser_item_t), compare_browser_items);
+    }
+    
+    ESP_LOGI(TAG, "Listed %d txt items in %s", g_browser_item_count, dir_path);
+    return g_browser_item_count;
+}
+
 static void scan_dir(const char *dir_path, int depth) {
     if (depth > 4) return; // Support up to 4 subfolder levels deep
     

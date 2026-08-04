@@ -125,6 +125,7 @@ typedef enum {
     FORMAT_UNKNOWN = 0,
     FORMAT_WAV,
     FORMAT_MP3,
+    FORMAT_TXT,
 } audio_format_t;
 
 /// Button events (decoded from GPIO)
@@ -144,6 +145,9 @@ typedef enum {
     UI_STATE_BOOT = 0,
     UI_STATE_BROWSER,
     UI_STATE_PLAYER,
+    UI_STATE_TXT_BROWSER,
+    UI_STATE_EREADER,
+    UI_STATE_EREADER_MENU,
 } ui_state_t;
 
 // =====================================================================

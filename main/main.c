@@ -12,6 +12,7 @@
 #include "button_handler.h"
 #include "oled_display.h"
 #include "audio_player.h"
+#include "ereader.h"
 
 static const char *TAG = "MAIN";
 
@@ -29,6 +30,8 @@ ui_state_t g_ui_state = UI_STATE_BOOT;
 static char g_current_dir[MAX_PATH_LEN] = SD_MOUNT_POINT;
 static int g_browser_selected = 0;
 static int g_boot_selected = 0;
+static int g_ereader_menu_selected = 0;
+static int g_bookmark_jump_idx = 0;
 
 #define OLED_SLEEP_TIMEOUT_MS 15000 // 15 seconds auto-sleep timeout to prevent OLED burn-in
 
@@ -56,7 +59,7 @@ void ui_task(void *arg) {
                         if (evt == BTN_EVT_UP_SHORT) {
                             if (g_boot_selected > 0) g_boot_selected--;
                         } else if (evt == BTN_EVT_DOWN_SHORT) {
-                            if (g_boot_selected < 1) g_boot_selected++;
+                            if (g_boot_selected < 2) g_boot_selected++;
                         } else if (evt == BTN_EVT_SELECT_SHORT) {
                             if (g_boot_selected == 0) { // 1. Music Player
                                 sd_card_list_dir(g_current_dir);
@@ -97,6 +100,10 @@ void ui_task(void *arg) {
                                         vTaskDelay(pdMS_TO_TICKS(1000));
                                     }
                                 }
+                            } else if (g_boot_selected == 2) { // 3. E-Reader
+                                sd_card_list_txt_dir(g_current_dir);
+                                g_browser_selected = 0;
+                                g_ui_state = UI_STATE_TXT_BROWSER;
                             }
                         }
                         break;
@@ -170,6 +177,91 @@ void ui_task(void *arg) {
                         }
                         break;
 
+                    case UI_STATE_TXT_BROWSER:
+                        if (evt == BTN_EVT_UP_SHORT) {
+                            if (g_browser_selected > 0) g_browser_selected--;
+                        } else if (evt == BTN_EVT_DOWN_SHORT) {
+                            if (g_browser_selected < g_browser_item_count - 1) g_browser_selected++;
+                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                            if (g_browser_item_count > 0 && g_browser_selected < g_browser_item_count) {
+                                browser_item_t *item = &g_browser_items[g_browser_selected];
+                                if (item->is_dir) {
+                                    strncpy(g_current_dir, item->path, MAX_PATH_LEN - 1);
+                                    g_current_dir[MAX_PATH_LEN - 1] = '\0';
+                                    sd_card_list_txt_dir(g_current_dir);
+                                    g_browser_selected = 0;
+                                } else {
+                                    // Open .txt file in E-Reader
+                                    if (ereader_open(item->path) == ESP_OK) {
+                                        g_ui_state = UI_STATE_EREADER;
+                                    } else {
+                                        oled_show_message("ERROR", "Failed to open file!");
+                                        vTaskDelay(pdMS_TO_TICKS(1000));
+                                    }
+                                }
+                            }
+                        } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                            if (strcmp(g_current_dir, SD_MOUNT_POINT) != 0) {
+                                char *last_slash = strrchr(g_current_dir, '/');
+                                if (last_slash && last_slash != g_current_dir) {
+                                    *last_slash = '\0';
+                                    if (strlen(g_current_dir) < strlen(SD_MOUNT_POINT)) {
+                                        strcpy(g_current_dir, SD_MOUNT_POINT);
+                                    }
+                                } else {
+                                    strcpy(g_current_dir, SD_MOUNT_POINT);
+                                }
+                                sd_card_list_txt_dir(g_current_dir);
+                                g_browser_selected = 0;
+                            } else {
+                                g_ui_state = UI_STATE_BOOT;
+                            }
+                        }
+                        break;
+
+                    case UI_STATE_EREADER:
+                        if (evt == BTN_EVT_UP_SHORT) {
+                            ereader_prev_page();
+                        } else if (evt == BTN_EVT_DOWN_SHORT) {
+                            ereader_next_page();
+                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                            g_ereader_menu_selected = 0;
+                            g_ui_state = UI_STATE_EREADER_MENU;
+                        } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                            ereader_close(); // Automatically saves progress on close!
+                            sd_card_list_txt_dir(g_current_dir);
+                            g_ui_state = UI_STATE_TXT_BROWSER;
+                        }
+                        break;
+
+                    case UI_STATE_EREADER_MENU:
+                        if (evt == BTN_EVT_UP_SHORT) {
+                            if (g_ereader_menu_selected > 0) g_ereader_menu_selected--;
+                        } else if (evt == BTN_EVT_DOWN_SHORT) {
+                            if (g_ereader_menu_selected < 3) g_ereader_menu_selected++;
+                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                            if (g_ereader_menu_selected == 0) {
+                                ereader_cycle_autoscroll();
+                            } else if (g_ereader_menu_selected == 1) {
+                                ereader_add_bookmark();
+                                g_ui_state = UI_STATE_EREADER;
+                            } else if (g_ereader_menu_selected == 2) {
+                                int count = ereader_get_bookmark_count();
+                                if (count > 0) {
+                                    ereader_jump_to_bookmark(g_bookmark_jump_idx % count);
+                                    g_bookmark_jump_idx++;
+                                }
+                                g_ui_state = UI_STATE_EREADER;
+                            } else if (g_ereader_menu_selected == 3) {
+                                ereader_close();
+                                sd_card_list_txt_dir(g_current_dir);
+                                g_ui_state = UI_STATE_TXT_BROWSER;
+                            }
+                        } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                            g_ui_state = UI_STATE_EREADER;
+                        }
+                        break;
+
                     case UI_STATE_PLAYER:
                         switch (evt) {
                             case BTN_EVT_SELECT_SHORT:
@@ -201,6 +293,11 @@ void ui_task(void *arg) {
             }
         }
         
+        // Auto-scroll check for E-Reader
+        if (g_ui_state == UI_STATE_EREADER && ereader_check_autoscroll()) {
+            last_activity_time = xTaskGetTickCount();
+        }
+
         // Auto-sleep check after 15 seconds of inactivity
         if (!oled_is_sleeping()) {
             if ((xTaskGetTickCount() - last_activity_time) >= pdMS_TO_TICKS(OLED_SLEEP_TIMEOUT_MS)) {
@@ -215,7 +312,14 @@ void ui_task(void *arg) {
                     oled_draw_boot_screen(g_boot_selected);
                     break;
                 case UI_STATE_BROWSER:
+                case UI_STATE_TXT_BROWSER:
                     oled_draw_browser(g_current_dir, g_browser_selected);
+                    break;
+                case UI_STATE_EREADER:
+                    oled_draw_ereader_page();
+                    break;
+                case UI_STATE_EREADER_MENU:
+                    oled_draw_ereader_menu(g_ereader_menu_selected);
                     break;
                 case UI_STATE_PLAYER:
                     xSemaphoreTake(g_state_mutex, portMAX_DELAY);
