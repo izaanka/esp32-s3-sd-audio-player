@@ -115,8 +115,8 @@ void ui_task(void *arg) {
                                     g_ui_state = UI_STATE_PLAYER;
                                 }
                             }
-                        } else if (evt == BTN_EVT_BACK_LONG) {
-                            // Navigate up directory
+                        } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                            // Short or Long press BACK in browser: Navigate up directory / back to main menu
                             if (strcmp(g_current_dir, SD_MOUNT_POINT) != 0) {
                                 char *last_slash = strrchr(g_current_dir, '/');
                                 if (last_slash && last_slash != g_current_dir) {
@@ -132,8 +132,6 @@ void ui_task(void *arg) {
                             } else {
                                 g_ui_state = UI_STATE_BOOT;
                             }
-                        } else if (evt == BTN_EVT_BACK_SHORT) {
-                            cmd = CMD_LOOP_TOGGLE;
                         }
                         break;
 

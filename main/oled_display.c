@@ -320,6 +320,16 @@ void oled_draw_browser(const char *current_path, int selected_index) {
         }
         if (top < 0) top = 0;
         
+        static int last_browser_selected_idx = -1;
+        static int browser_scroll_offset = 0;
+        static uint32_t last_browser_scroll_time = 0;
+        
+        if (selected_index != last_browser_selected_idx) {
+            last_browser_selected_idx = selected_index;
+            browser_scroll_offset = 0;
+            last_browser_scroll_time = (uint32_t)(esp_timer_get_time() / 1000);
+        }
+
         for (int i = 0; i < 5; i++) {
             int idx = top + i;
             if (idx >= g_browser_item_count) break;
@@ -329,12 +339,42 @@ void oled_draw_browser(const char *current_path, int selected_index) {
             
             char line_buf[128];
             browser_item_t *item = &g_browser_items[idx];
+            
+            char display_text[MAX_NAME_LEN + 4];
             if (item->is_dir) {
-                snprintf(line_buf, sizeof(line_buf), "%c[%s]", is_sel ? '>' : ' ', item->name);
+                snprintf(display_text, sizeof(display_text), "[%s]", item->name);
             } else {
-                snprintf(line_buf, sizeof(line_buf), "%c %s", is_sel ? '>' : ' ', item->name);
+                snprintf(display_text, sizeof(display_text), "%s", item->name);
             }
-            line_buf[21] = '\0';
+            
+            int full_len = strlen(display_text);
+            
+            if (is_sel) {
+                if (full_len > 19) {
+                    uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
+                    if (now - last_browser_scroll_time > OLED_SCROLL_INTERVAL_MS) {
+                        browser_scroll_offset = (browser_scroll_offset + 1) % (full_len + 4);
+                        last_browser_scroll_time = now;
+                    }
+                    
+                    char scroll_win[20];
+                    for (int k = 0; k < 19; k++) {
+                        int pos = (browser_scroll_offset + k) % (full_len + 4);
+                        if (pos < full_len) {
+                            scroll_win[k] = display_text[pos];
+                        } else {
+                            scroll_win[k] = ' ';
+                        }
+                    }
+                    scroll_win[19] = '\0';
+                    snprintf(line_buf, sizeof(line_buf), "> %s", scroll_win);
+                } else {
+                    snprintf(line_buf, sizeof(line_buf), "> %s", display_text);
+                }
+            } else {
+                snprintf(line_buf, sizeof(line_buf), "  %s", display_text);
+                line_buf[21] = '\0';
+            }
             
             fb_draw_string(0, y, line_buf);
         }
@@ -343,7 +383,7 @@ void oled_draw_browser(const char *current_path, int selected_index) {
     // Footer line
     fb_draw_hline(0, 56, 128);
     char footer_buf[64];
-    snprintf(footer_buf, sizeof(footer_buf), "%d/%d | BACK:Exit", 
+    snprintf(footer_buf, sizeof(footer_buf), "%d/%d | BACK: Up", 
              g_browser_item_count > 0 ? selected_index + 1 : 0, g_browser_item_count);
     footer_buf[21] = '\0';
     fb_draw_string(0, 57, footer_buf);
