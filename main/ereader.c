@@ -15,7 +15,7 @@ typedef struct {
     uint32_t file_offset;
     int current_page;
     int auto_scroll_sec;
-    uint32_t bookmarks[MAX_EREADER_BOOKMARKS];
+    ereader_bookmark_t bookmarks[MAX_EREADER_BOOKMARKS];
     int bookmark_count;
 } ereader_save_data_t;
 
@@ -238,15 +238,35 @@ void ereader_add_bookmark(void) {
     if (!s_is_open) return;
     uint32_t page = s_info.current_page;
     for (int i = 0; i < s_info.bookmark_count; i++) {
-        if (s_info.bookmarks[i] == page) return; // Already bookmarked
+        if (s_info.bookmarks[i].page == page) return; // Already bookmarked
     }
+    
+    char lines[6][22];
+    ereader_get_page_lines(lines);
+    
+    char snippet[BOOKMARK_SNIPPET_LEN] = "Empty Page";
+    for (int l = 0; l < 6; l++) {
+        char *ptr = lines[l];
+        while (*ptr && isspace((unsigned char)*ptr)) ptr++;
+        if (*ptr != '\0') {
+            strncpy(snippet, ptr, BOOKMARK_SNIPPET_LEN - 1);
+            snippet[BOOKMARK_SNIPPET_LEN - 1] = '\0';
+            break;
+        }
+    }
+    
+    int idx = 0;
     if (s_info.bookmark_count < MAX_EREADER_BOOKMARKS) {
-        s_info.bookmarks[s_info.bookmark_count++] = page;
+        idx = s_info.bookmark_count++;
     } else {
-        // Shift bookmarks left
-        memmove(&s_info.bookmarks[0], &s_info.bookmarks[1], sizeof(uint32_t) * (MAX_EREADER_BOOKMARKS - 1));
-        s_info.bookmarks[MAX_EREADER_BOOKMARKS - 1] = page;
+        memmove(&s_info.bookmarks[0], &s_info.bookmarks[1], sizeof(ereader_bookmark_t) * (MAX_EREADER_BOOKMARKS - 1));
+        idx = MAX_EREADER_BOOKMARKS - 1;
     }
+    
+    s_info.bookmarks[idx].page = page;
+    strncpy(s_info.bookmarks[idx].snippet, snippet, BOOKMARK_SNIPPET_LEN - 1);
+    s_info.bookmarks[idx].snippet[BOOKMARK_SNIPPET_LEN - 1] = '\0';
+    
     save_progress();
 }
 
@@ -254,9 +274,14 @@ int ereader_get_bookmark_count(void) {
     return s_info.bookmark_count;
 }
 
+const ereader_bookmark_t* ereader_get_bookmark(int index) {
+    if (index < 0 || index >= s_info.bookmark_count) return NULL;
+    return &s_info.bookmarks[index];
+}
+
 bool ereader_jump_to_bookmark(int index) {
     if (!s_is_open || index < 0 || index >= s_info.bookmark_count) return false;
-    s_info.current_page = s_info.bookmarks[index];
+    s_info.current_page = s_info.bookmarks[index].page;
     s_last_autoscroll_time = (uint32_t)(esp_timer_get_time() / 1000);
     return true;
 }

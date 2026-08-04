@@ -36,6 +36,7 @@ static int g_bookmark_jump_idx = 0;
 static const int g_autoscroll_timings[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 30};
 #define NUM_AUTOSCROLL_TIMINGS (sizeof(g_autoscroll_timings)/sizeof(g_autoscroll_timings[0]))
 static int g_autoscroll_menu_selected = 0;
+static int g_bookmark_menu_selected = 0;
 
 #define OLED_SLEEP_TIMEOUT_MS 15000 // 15 seconds auto-sleep timeout to prevent OLED burn-in
 
@@ -228,10 +229,10 @@ void ui_task(void *arg) {
                             ereader_prev_page();
                         } else if (evt == BTN_EVT_DOWN_SHORT) {
                             ereader_next_page();
-                        } else if (evt == BTN_EVT_SELECT_SHORT) {
+                        } else if (evt == BTN_EVT_SELECT_SHORT || evt == BTN_EVT_BACK_SHORT) {
                             g_ereader_menu_selected = 0;
                             g_ui_state = UI_STATE_EREADER_MENU;
-                        } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                        } else if (evt == BTN_EVT_BACK_LONG) {
                             ereader_close(); // Automatically saves progress on close!
                             sd_card_list_txt_dir(g_current_dir);
                             g_ui_state = UI_STATE_TXT_BROWSER;
@@ -258,12 +259,8 @@ void ui_task(void *arg) {
                                 ereader_add_bookmark();
                                 g_ui_state = UI_STATE_EREADER;
                             } else if (g_ereader_menu_selected == 2) {
-                                int count = ereader_get_bookmark_count();
-                                if (count > 0) {
-                                    ereader_jump_to_bookmark(g_bookmark_jump_idx % count);
-                                    g_bookmark_jump_idx++;
-                                }
-                                g_ui_state = UI_STATE_EREADER;
+                                g_bookmark_menu_selected = 0;
+                                g_ui_state = UI_STATE_BOOKMARK_MENU;
                             } else if (g_ereader_menu_selected == 3) {
                                 ereader_close();
                                 sd_card_list_txt_dir(g_current_dir);
@@ -284,6 +281,24 @@ void ui_task(void *arg) {
                             g_ui_state = UI_STATE_EREADER;
                         } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
                             g_ui_state = UI_STATE_EREADER_MENU;
+                        }
+                        break;
+
+                    case UI_STATE_BOOKMARK_MENU:
+                        {
+                            int count = ereader_get_bookmark_count();
+                            if (evt == BTN_EVT_UP_SHORT) {
+                                if (g_bookmark_menu_selected > 0) g_bookmark_menu_selected--;
+                            } else if (evt == BTN_EVT_DOWN_SHORT) {
+                                if (count > 0 && g_bookmark_menu_selected < count - 1) g_bookmark_menu_selected++;
+                            } else if (evt == BTN_EVT_SELECT_SHORT) {
+                                if (count > 0) {
+                                    ereader_jump_to_bookmark(g_bookmark_menu_selected);
+                                    g_ui_state = UI_STATE_EREADER;
+                                }
+                            } else if (evt == BTN_EVT_BACK_SHORT || evt == BTN_EVT_BACK_LONG) {
+                                g_ui_state = UI_STATE_EREADER_MENU;
+                            }
                         }
                         break;
 
@@ -348,6 +363,9 @@ void ui_task(void *arg) {
                     break;
                 case UI_STATE_AUTOSCROLL_MENU:
                     oled_draw_autoscroll_menu(g_autoscroll_menu_selected);
+                    break;
+                case UI_STATE_BOOKMARK_MENU:
+                    oled_draw_bookmark_menu(g_bookmark_menu_selected);
                     break;
                 case UI_STATE_PLAYER:
                     xSemaphoreTake(g_state_mutex, portMAX_DELAY);

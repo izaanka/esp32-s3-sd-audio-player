@@ -340,7 +340,7 @@ void oled_draw_ereader_menu(int menu_index) {
     const char *menu_items[] = {
         auto_buf,
         "2. Add Bookmark",
-        "3. Jump Bookmark",
+        "3. View Bookmarks",
         "4. Exit Reader"
     };
     int num_items = sizeof(menu_items) / sizeof(menu_items[0]);
@@ -392,6 +392,50 @@ void oled_draw_autoscroll_menu(int selected_index) {
     fb_draw_hline(0, 56, 128);
     char footer[32];
     snprintf(footer, sizeof(footer), "%d/%d | SELECT:Set", selected_index + 1, total_options);
+    fb_draw_string(0, 57, footer);
+    
+    fb_flush();
+}
+
+void oled_draw_bookmark_menu(int selected_index) {
+    fb_clear();
+    
+    fb_draw_string(18, 2, "Saved Bookmarks");
+    fb_draw_hline(0, 11, 128);
+    
+    int count = ereader_get_bookmark_count();
+    if (count == 0) {
+        fb_draw_string(12, 28, "No Bookmarks Yet!");
+    } else {
+        int top = selected_index - 1;
+        if (top < 0) top = 0;
+        if (top + 4 > count) top = count - 4;
+        if (top < 0) top = 0;
+        
+        for (int i = 0; i < 4; i++) {
+            int idx = top + i;
+            if (idx >= count) break;
+            
+            const ereader_bookmark_t *bm = ereader_get_bookmark(idx);
+            bool is_sel = (idx == selected_index);
+            
+            char label[64];
+            snprintf(label, sizeof(label), "%c %d) \"%s\"", 
+                     is_sel ? '>' : ' ', 
+                     idx + 1, 
+                     bm ? bm->snippet : "");
+            label[21] = '\0';
+            fb_draw_string(0, 14 + (i * 10), label);
+        }
+    }
+    
+    fb_draw_hline(0, 56, 128);
+    char footer[64];
+    if (count > 0) {
+        snprintf(footer, sizeof(footer), "%d/%d | SELECT:Jump", selected_index + 1, count);
+    } else {
+        snprintf(footer, sizeof(footer), "BACK: Return");
+    }
     fb_draw_string(0, 57, footer);
     
     fb_flush();
